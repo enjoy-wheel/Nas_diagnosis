@@ -130,36 +130,73 @@ class Trainer(BaseTrainer):
     def _valid_epoch(self, epoch):
         """
         Validate after training an epoch
+        在训练一个 epoch 后进行验证
 
-        :param epoch: Integer, current training epoch.
-        :return: A log that contains information about validation
+        :param epoch: Integer, current training epoch.整数类型，表示当前的训练 epoch（轮次）
+        :return: A log that contains information about validation 一个日志，包含有关验证过程的信息
         """
+        # 将模型设置为评估模式，禁用 dropout 和 batch normalization 的训练行为
         self.model.eval()
+
+        # 重置验证指标，以确保验证开始时指标从零开始
         self.valid_metrics.reset()
+
+        # 在验证过程中不需要计算梯度，因此使用 torch.no_grad() 来禁用自动求导机制
         with torch.no_grad():
+            # 遍历验证数据加载器，逐批获取数据和目标
             for batch_idx, (data, target) in enumerate(self.valid_data_loader):
+                # 将数据和目标移动到指定的设备（例如 GPU 或 CPU）
                 data, target = data.to(self.device), target.to(self.device)
 
+                # 前向传播：将输入数据传入模型，得到输出
                 output = self.model(data)
+
+                # 计算损失：根据模型输出和目标值计算损失
                 loss = self.criterion(output, target)
 
+                # 设置当前验证步骤，用于记录日志和监控验证过程
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
+
+                # 更新验证指标，记录损失
                 self.valid_metrics.update('loss', loss.item())
+
+                # 对于每个评估函数，计算对应的指标并更新到验证指标中
                 for met in self.metric_ftns:
                     self.valid_metrics.update(met.__name__, met(output, target))
+
+                # 记录输入数据到日志中，并显示为图像形式
                 self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 
         # add histogram of model parameters to the tensorboard
+        # 将模型的参数以直方图的形式添加到 TensorBoard 中
         for name, p in self.model.named_parameters():
             self.writer.add_histogram(name, p, bins='auto')
+
+        # 返回验证指标的结果
         return self.valid_metrics.result()
 
     def _progress(self, batch_idx):
+        """
+        返回当前训练进度的字符串表示形式
+
+        :param batch_idx: 当前的批次索引
+        :return: 一个包含当前进度信息的字符串，格式为 [当前/总共 (百分比%)]
+        """
+        # 定义显示格式，格式为 [当前/总共 (百分比%)]
         base = '[{}/{} ({:.0f}%)]'
+
+        # 如果 data_loader 有 'n_samples' 属性（说明有样本总数），计算基于样本数量的进度
         if hasattr(self.data_loader, 'n_samples'):
+            # 计算当前处理的样本数量：批次索引乘以批次大小
             current = batch_idx * self.data_loader.batch_size
+            # 获取总样本数
             total = self.data_loader.n_samples
         else:
+            # 如果没有 'n_samples' 属性，使用基于批次数量的进度
             current = batch_idx
+            # 使用 len_epoch 作为总批次数
             total = self.len_epoch
+
+        # 返回格式化的进度字符串，包含当前处理的数量、总数和百分比
         return base.format(current, total, 100.0 * current / total)
+

@@ -22,7 +22,9 @@ def write_json(content, fname):
         json.dump(content, handle, indent=4, sort_keys=False)
 
 def inf_loop(data_loader):
-    ''' wrapper function for endless data loader. '''
+    """
+    wrapper function for endless data loader.
+    """
     for loader in repeat(data_loader):
         yield from loader
 
@@ -43,25 +45,61 @@ def prepare_device(n_gpu_use):
     list_ids = list(range(n_gpu_use))
     return device, list_ids
 
+
 class MetricTracker:
     def __init__(self, *keys, writer=None):
+        """
+        初始化 MetricTracker 类，用于跟踪多个指标的总值、计数和平均值
+        :param *keys: 传入的指标名称，用于定义需要跟踪的指标
+        :param writer: 可选的 TensorBoard writer，用于记录指标的变化
+        """
+        # 保存 TensorBoard writer（如果提供的话）
         self.writer = writer
+        # 创建一个 Pandas DataFrame，用于存储每个指标的总值（total）、计数（counts）和平均值（average）
         self._data = pd.DataFrame(index=keys, columns=['total', 'counts', 'average'])
+        # 重置所有指标的值
         self.reset()
 
     def reset(self):
+        """
+        重置所有指标的 total、counts 和 average 值为 0
+        """
+        # 将 DataFrame 中的所有列的值重置为 0
         for col in self._data.columns:
             self._data[col].values[:] = 0
 
     def update(self, key, value, n=1):
+        """
+        更新指定指标的值
+        :param key: 要更新的指标名称
+        :param value: 指标的最新值
+        :param n: 更新的样本数量，默认是 1
+        """
+        # 如果 writer 不为空，将当前值记录到 TensorBoard 中
         if self.writer is not None:
             self.writer.add_scalar(key, value)
+
+        # 累加指标的总值，total = total + value * n
         self._data.total[key] += value * n
+        # 累加计数，counts = counts + n
         self._data.counts[key] += n
+        # 计算新的平均值，average = total / counts
         self._data.average[key] = self._data.total[key] / self._data.counts[key]
 
     def avg(self, key):
+        """
+        返回指定指标的当前平均值。
+
+        :param key: 指标名称。
+        :return: 指标的平均值。
+        """
         return self._data.average[key]
 
     def result(self):
+        """
+        返回所有指标的平均值。
+
+        :return: 一个字典，键为指标名称，值为对应的平均值。
+        """
         return dict(self._data.average)
+
