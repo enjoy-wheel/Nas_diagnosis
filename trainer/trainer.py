@@ -27,6 +27,7 @@ class Trainer(BaseTrainer):
             # len_epoch 为训练数据加载器的长度（即一个 epoch 中的批次数）
             # 即一个epoch训练完数据集所有数据
             self.len_epoch = len(self.data_loader)
+
         else:
             # iteration-based training
             # 基于迭代的训练模式
