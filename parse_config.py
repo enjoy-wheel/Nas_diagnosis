@@ -36,7 +36,7 @@ class ConfigParser:
         exper_name = self.config['name']
 
         # 如果没有提供run_id，则使用当前时间戳作为默认的run-id
-        if run_id is None: # use timestamp as default run-id
+        if run_id is None:  # use timestamp as default run-id
             run_id = datetime.now().strftime(r'%m%d_%H%M%S')
 
         # 定义保存模型和日志的目录，按照实验名称和运行ID组织
@@ -104,7 +104,7 @@ class ConfigParser:
             config.update(read_json(args.config))
 
         # parse custom cli options into dictionary
-        # 解析自定义命令行选项，将其转换为字典
+        # 解析自定义命令行选项，将其转换为字典  
         modification = {opt.target : getattr(args, _get_opt_name(opt.flags)) for opt in options}
         return cls(config, resume, modification)
 
@@ -137,7 +137,6 @@ class ConfigParser:
         :param args: 传递给类或函数的非关键字参数。
         :param kwargs: 传递给类或函数的关键字参数。
         :return: 返回通过类或函数句柄初始化的实例。
-
         """
         # 从配置中获取模块的名称
         module_name = self[name]['type']

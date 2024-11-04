@@ -33,6 +33,15 @@ def main(config):
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
     # 将模型的结构信息记录到日志中，便于查看和验证模型架构
+    logger.info('regularizing:')
+    for regularizer in [('activation regularization',
+                         config.config["PTB_regularizations"]["activation_regularization"]["state"]),
+                        ('temporal activation regularization',
+                         config.config["PTB_regularizations"]["temporal_activation_regularization"]["state"]),
+                        ('norm stabilizer regularization',
+                         config.config["PTB_regularizations"]["norm_stabilizer_regularization"]["state"])]:
+        if regularizer[1]:
+            logger.info(f'{regularizer[0]}')
     logger.info(model)
 
     # 根据配置文件中指定的 GPU 数量，准备训练设备
@@ -63,7 +72,8 @@ def main(config):
                       device=device,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler)
+                      lr_scheduler=lr_scheduler,
+                      logger=logger)
     trainer.train()
 
 

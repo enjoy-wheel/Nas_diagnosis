@@ -46,5 +46,20 @@
         "early_stop": 10,
 
         "tensorboard": true
+    },
+    "PTB_regularizations": {
+        "activation_regularization": {
+            "state": false,
+            "amount": 2.0
+        },
+        "temporal_activation_regularization": {
+            "state": false,
+            "amount": 1.0
+        },
+        "norm_stabilizer_regularization": {
+            "state": false,
+            "amount": 1.0,
+            "fixed_point": 5.0
+        }
     }
 }

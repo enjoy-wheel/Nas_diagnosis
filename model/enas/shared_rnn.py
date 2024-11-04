@@ -7,7 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-import models.shared_base
+import base.base_model
 import utils
 
 
@@ -131,10 +131,10 @@ class LockedDropout(nn.Module):
         return mask * x
 
 
-class RNN(models.shared_base.SharedModel):
+class RNN(base.base_model.BaseModel):
     """Shared RNN model."""
     def __init__(self, args, corpus):
-        models.shared_base.SharedModel.__init__(self)
+        model.shared_base.SharedModel.__init__(self)
 
         self.args = args
         self.corpus = corpus

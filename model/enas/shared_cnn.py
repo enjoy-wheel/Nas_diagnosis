@@ -6,7 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from models.shared_base import *
+from base.base_model import *
 from utils import get_logger, get_variable, keydefaultdict
 
 logger = get_logger()
@@ -35,7 +35,7 @@ def conv(kernel, planes):
     )
 
 
-class CNN(SharedModel):
+class CNN(BaseModel):
     def __init__(self, args, images):
         super(CNN, self).__init__()
 
@@ -57,7 +57,7 @@ class CNN(SharedModel):
 
     def get_f(self, name):
         name = name.lower()
-        return f
+        return name
 
     def get_num_cell_parameters(self, dag):
         pass

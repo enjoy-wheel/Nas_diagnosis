@@ -1,23 +1,27 @@
 import numpy as np
 import torch
+from munch import Munch
 from torchvision.utils import make_grid
 from base import BaseTrainer
 from utils import inf_loop, MetricTracker
+
+
+
 
 
 class Trainer(BaseTrainer):
     """
     Trainer class
     """
-    def __init__(self, model, criterion, metric_ftns, optimizer, config, device,
+    def __init__(self, model, criterion, metric_ftns, optimizer, config, device, logger,
                  data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
         # 调用父类的初始化函数，并传入模型、损失函数、评估指标、优化器和配置对象
         super().__init__(model, criterion, metric_ftns, optimizer, config)
 
         # 保存配置对象和设备信息
-        self.config = config
+        self.config = Munch(config.config)
         self.device = device
-
+        self.logger = logger
         # 保存训练数据的 DataLoader
         self.data_loader = data_loader
 
@@ -179,7 +183,6 @@ class Trainer(BaseTrainer):
     def _progress(self, batch_idx):
         """
         返回当前训练进度的字符串表示形式
-
         :param batch_idx: 当前的批次索引
         :return: 一个包含当前进度信息的字符串，格式为 [当前/总共 (百分比%)]
         """
@@ -201,3 +204,32 @@ class Trainer(BaseTrainer):
         # 返回格式化的进度字符串，包含当前处理的数量、总数和百分比
         return base.format(current, total, 100.0 * current / total)
 
+    def _check_abs_max_grad(self, abs_max_grad, model):
+        """
+        检查模型的梯度，以确定本轮迭代中的最大绝对梯度，用于跟踪梯度爆炸情况。
+
+        Args:
+            abs_max_grad: 当前记录的最大绝对梯度值。
+            model: 需要检查的模型。
+
+        Returns:
+            更新后的最大绝对梯度值。
+        """
+        # 从模型参数中提取有效的梯度
+        finite_grads = [p.grad.data
+                        for p in model.parameters()
+                        if p.grad is not None]
+
+        # 找到当前模型参数中的新最大梯度
+        new_max_grad = max([grad.max() for grad in finite_grads])
+        # 找到当前模型参数中的新最小梯度
+        new_min_grad = min([grad.min() for grad in finite_grads])
+
+        # 计算当前模型的绝对最大梯度
+        new_abs_max_grad = max(new_max_grad, abs(new_min_grad))
+
+        # 如果新的绝对最大梯度超过当前记录的最大绝对梯度，更新记录并打印日志
+        if new_abs_max_grad > abs_max_grad:
+            self.logger.info(f'abs max grad {abs_max_grad}')
+            return new_abs_max_grad  # 返回更新后的最大绝对梯度
+        return abs_max_grad  # 返回未更新的最大绝对梯度
