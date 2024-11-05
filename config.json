@@ -16,12 +16,21 @@
             "num_workers": 2
         }
     },
-    "optimizer": {
+    "controller_optimizer": {
         "type": "Adam",
+        "args": {
+            "lr": 3.5e-4,
+            "lr_cosine": false,
+            "lr_max": 0.05,
+            "lr_min": 0.001
+        }
+    },
+    "shared_optimizer": {
+        "type": "SGD",
         "args":{
-            "lr": 0.001,
-            "weight_decay": 0,
-            "amsgrad": true
+            "lr": 20.0,
+            "weight_decay": 0.96,
+            "weight_decay_after": 15.0
         }
     },
     "loss": "nll_loss",
