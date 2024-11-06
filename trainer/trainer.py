@@ -9,15 +9,30 @@ from utils import inf_loop, MetricTracker
 
 
 
-class Trainer(BaseTrainer):
+class EnasTrainer(BaseTrainer):
     """
     Trainer class
     """
-    def __init__(self, model, criterion, metric_ftns, optimizer, config, device, logger,
-                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
-        # 调用父类的初始化函数，并传入模型、损失函数、评估指标、优化器和配置对象
-        super().__init__(model, criterion, metric_ftns, optimizer, config)
-
+    def __init__(self, models, criterion, metric_ftns, optimizers, config, device, logger,
+                 data_loader, valid_data_loader=None, lr_schedulers=None, len_epoch=None):
+        # 保存模型
+        if isinstance(models, tuple) and len(models) == 2:
+            self.shared_model, self.controller_model = models
+        else:
+            self.shared_model = models
+            self.controller = None
+        # 保存优化器
+        if isinstance(optimizers, tuple) and len(optimizers) == 2:
+            self.shared_optimizer, self.controller_optimizer = optimizers
+        else:
+            self.shared_optimizer = optimizers
+            self.controller_optimizer = None
+        # 保存学习率调度器
+        if isinstance(lr_schedulers, tuple) and len(lr_schedulers) == 2:
+            self.shared_lr_scheduler, self.controller_lr_scheduler = lr_schedulers
+        else:
+            self.shared_lr_scheduler = lr_schedulers
+            self.controller_lr_scheduler = None
         # 保存配置对象和设备信息
         self.config = Munch(config.config)
         self.device = device
@@ -25,6 +40,8 @@ class Trainer(BaseTrainer):
         # 保存训练数据的 DataLoader
         self.data_loader = data_loader
 
+        # 调用父类的初始化函数，并传入模型、损失函数、评估指标、优化器和配置对象
+        super().__init__(self.shared_model, criterion, metric_ftns, self.shared_optimizer, config)
         # 如果没有传入 len_epoch，使用基于 epoch 的训练
         if len_epoch is None:
             # epoch-based training epoch 训练模式
@@ -46,9 +63,6 @@ class Trainer(BaseTrainer):
 
         # 判断是否进行验证，只有在提供验证数据加载器时才进行验证
         self.do_validation = self.valid_data_loader is not None
-
-        # 保存学习率调度器（如果有的话）
-        self.lr_scheduler = lr_scheduler
 
         # 设置每个日志记录步骤的间隔（基于批次大小的平方根）
         self.log_step = int(np.sqrt(data_loader.batch_size))

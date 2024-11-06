@@ -10,9 +10,8 @@ import model.enas.enas_controller as controller_arch
 import model.enas.shared_cnn as shared_cnn_arch
 import model.enas.shared_rnn as shared_cnn_arch
 from parse_config import ConfigParser
-from trainer import Trainer
+from trainer import EnasTrainer
 from utils import prepare_device
-
 
 # fix random seeds for reproducibility
 SEED = 123
@@ -21,8 +20,8 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
-def main(config):
 
+def main(config):
     # 初始化一个日志记录器，用于记录训练过程中的信息、警告、错误等。日志记录器有助于调试和监控模型训练的进展
     logger = config.get_logger('train')
 
@@ -74,13 +73,17 @@ def main(config):
     controller_lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, controller_optimizer)
 
     # 创建训练器Trainer实例，并开始训练
-    trainer = Trainer(shared_model, controller_model, criterion, metrics, shared_optimizer, controller_optimizer,
-                      config=config,
-                      device=device,
-                      data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler,
-                      logger=logger)
+    trainer = EnasTrainer(models=(shared_model, controller_model),
+                          criterion=criterion,
+                          metric_ftns=metrics,
+                          optimizers=(shared_optimizer, controller_optimizer),
+                          config=config,
+                          device=device,
+                          data_loader=data_loader,
+                          valid_data_loader=valid_data_loader,
+                          lr_schedulers=(shared_lr_scheduler, controller_lr_scheduler),
+                          logger=logger
+                          )
     trainer.train()
 
 
