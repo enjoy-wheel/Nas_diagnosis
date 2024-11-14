@@ -2,7 +2,7 @@ import torch
 from abc import abstractmethod
 from numpy import inf
 from logger import TensorboardWriter
-
+from utils import AverageMeter
 
 class BaseTrainer:
     """
@@ -49,54 +49,52 @@ class BaseTrainer:
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
-
         :param epoch: Current epoch number
         """
         raise NotImplementedError
 
     def train(self):
         """
-        Full training logic
+        完整的训练逻辑
         """
-        not_improved_count = 0
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            result = self._train_epoch(epoch)
-
-            # save logged informations into log dict
-            log = {'epoch': epoch}
-            log.update(result)
-
-            # print logged informations to the screen
+        not_improved_count = 0  # 初始化未提升计数器
+        for epoch in range(self.start_epoch, self.epochs + 1):  # 遍历每个训练轮次
+            result = self._train_epoch(epoch)  # 训练一个轮次，并返回结果
+            # 将记录的信息保存到日志字典中
+            log = {'epoch': epoch}  # 创建日志字典，包含当前轮次
+            log.update(result)  # 更新日志字典，添加训练结果
+            # 将日志信息打印到屏幕上
             for key, value in log.items():
-                self.logger.info('    {:15s}: {}'.format(str(key), value))
-
-            # evaluate model performance according to configured metric, save best checkpoint as model_best
-            best = False
-            if self.mnt_mode != 'off':
+                self.logger.info('    {:15s}: {}'.format(str(key), value))  # 打印每个日志项
+            # 根据配置的指标评估模型性能，保存最佳模型检查点
+            best = False  # 标记当前是否为最佳模型
+            if self.mnt_mode != 'off':  # 如果启用了模型性能监控
                 try:
-                    # check whether model performance improved or not, according to specified metric(mnt_metric)
+                    # 检查模型性能是否有提升，依据指定的指标（mnt_metric）
                     improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
                                (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
                 except KeyError:
+                    # 如果日志中没有指定的监控指标，发出警告并关闭监控
                     self.logger.warning("Warning: Metric '{}' is not found. "
                                         "Model performance monitoring is disabled.".format(self.mnt_metric))
                     self.mnt_mode = 'off'
                     improved = False
-
                 if improved:
-                    self.mnt_best = log[self.mnt_metric]
-                    not_improved_count = 0
-                    best = True
+                    self.mnt_best = log[self.mnt_metric]  # 更新最佳性能值
+                    not_improved_count = 0  # 重置未提升计数器
+                    best = True  # 标记当前模型为最佳模型
                 else:
-                    not_improved_count += 1
-
+                    not_improved_count += 1  # 未提升计数器加一
                 if not_improved_count > self.early_stop:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
+                    # 如果连续多次未提升，早停训练
+                    self.logger.info("Validation performance didn't improve for {} epochs. "
                                      "Training stops.".format(self.early_stop))
-                    break
-
+                    break  # 退出训练循环
             if epoch % self.save_period == 0:
-                self._save_checkpoint(epoch, save_best=best)
+                # 根据保存周期，保存模型检查点
+                self._save_checkpoint(epoch, save_best=best)  # 保存模型，若为最佳模型则特殊处理
+
+
 
     def _save_checkpoint(self, epoch, save_best=False):
         """

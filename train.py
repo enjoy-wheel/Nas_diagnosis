@@ -8,7 +8,7 @@ import model.metric as module_metric
 import model.model as module_arch
 import model.enas.enas_controller as controller_arch
 import model.enas.shared_cnn as shared_cnn_arch
-import model.enas.shared_rnn as shared_cnn_arch
+import model.enas.shared_rnn as shared_rnn_arch
 from parse_config import ConfigParser
 from trainer import EnasTrainer
 from utils import prepare_device
@@ -24,27 +24,16 @@ np.random.seed(SEED)
 def main(config):
     # 初始化一个日志记录器，用于记录训练过程中的信息、警告、错误等。日志记录器有助于调试和监控模型训练的进展
     logger = config.get_logger('train')
-
     # 根据配置文件中关于数据加载器的设置，初始化一个数据加载器对象
     # setup data_loader instances
     # @module_data: 数据加载器类
     data_loader = config.init_obj('data_loader', module_data)
     valid_data_loader = data_loader.split_validation()
-
     # 根据配置文件中关于模型架构的设置，初始化模型实例
     # build model architecture, then print to console
-    shared_model = config.init_obj('arch', module_arch)
-    controller_model = config.init_obj('arch', )
+    shared_model = config.init_obj('arch', shared_cnn_arch)
+    controller_model = config.init_obj('arch', controller_arch)
     # 将模型的结构信息记录到日志中，便于查看和验证模型架构
-    logger.info('regularizing:')
-    for regularizer in [('activation regularization',
-                         config.config["PTB_regularizations"]["activation_regularization"]["state"]),
-                        ('temporal activation regularization',
-                         config.config["PTB_regularizations"]["temporal_activation_regularization"]["state"]),
-                        ('norm stabilizer regularization',
-                         config.config["PTB_regularizations"]["norm_stabilizer_regularization"]["state"])]:
-        if regularizer[1]:
-            logger.info(f'{regularizer[0]}')
     logger.info(shared_model)
     logger.info(controller_model)
     # 根据配置文件中指定的 GPU 数量，准备训练设备

@@ -1,74 +1,109 @@
 {
-    "name": "Mnist_LeNet",
+  "arch": {
+    "type": "",
     "n_gpu": 1,
-
-    "arch": {
-        "type": "MnistModel",
+    "shared": {
+      "arch": {
+        "type": "Shared_CNN",
         "args": {}
+      }
     },
-    "data_loader": {
-        "type": "MnistDataLoader",
-        "args":{
-            "data_dir": "data/",
-            "batch_size": 128,
-            "shuffle": true,
-            "validation_split": 0.1,
-            "num_workers": 2
-        }
-    },
-    "controller_optimizer": {
+    "controller": {
+      "arch": {
+        "type": "Controller_RNN",
+        "args": {}
+      }
+    }
+  },
+  "learning": {
+    "train": {
+      "epochs": 100,
+      "save_dir": "saved/",
+      "save_period": 1,
+      "verbosity": 2,
+      "monitor": "min val_loss",
+      "early_stop": 10,
+      "tensorboard": true,
+      "shared_train": {
+        "shared_max_step": 400,
+        "shared_num_sample": 1,
+        "shared_grad_clip": 0.25
+      },
+      "controller_optimizer": {
         "type": "Adam",
         "args": {
-            "lr": 3.5e-4,
-            "lr_cosine": false,
-            "lr_max": 0.05,
-            "lr_min": 0.001
+          "lr": 3.5e-4,
+          "lr_cosine": false,
+          "lr_max": 0.05,
+          "lr_min": 0.001
         }
-    },
-    "shared_optimizer": {
+      },
+      "shared_optimizer": {
         "type": "SGD",
-        "args":{
-            "lr": 20.0,
-            "weight_decay": 0.96,
-            "weight_decay_after": 15.0
+        "args": {
+          "lr": 20.0,
+          "weight_decay": 0.96,
+          "weight_decay_after": 15.0
         }
-    },
-    "loss": "nll_loss",
-    "metrics": [
-        "accuracy", "top_k_acc"
-    ],
-    "lr_scheduler": {
+      },
+      "lr_scheduler": {
         "type": "StepLR",
         "args": {
-            "step_size": 50,
-            "gamma": 0.1
+          "step_size": 50,
+          "gamma": 0.1
         }
+      }
     },
-    "trainer": {
-        "epochs": 100,
-
-        "save_dir": "saved/",
-        "save_period": 1,
-        "verbosity": 2,
-        
-        "monitor": "min val_loss",
-        "early_stop": 10,
-
-        "tensorboard": true
-    },
-    "PTB_regularizations": {
-        "activation_regularization": {
-            "state": false,
-            "amount": 2.0
-        },
-        "temporal_activation_regularization": {
-            "state": false,
-            "amount": 1.0
-        },
-        "norm_stabilizer_regularization": {
-            "state": false,
-            "amount": 1.0,
-            "fixed_point": 5.0
-        }
+    "test": {
     }
+  },
+  "loss": "nll_loss",
+  "metrics": [
+    "accuracy",
+    "top_k_acc"
+  ],
+  "train_parameters": {
+    "search_for": "macro",
+    "save_dir": "/saved",
+    "num_epoch": 310,
+    "log_step": 50,
+    "eval_every_epochs": 1,
+    "seed": 0,
+    "fixed_arc": false,
+    "data_loader": {
+      "type": "MnistDataLoader",
+      "args": {
+        "data_dir": "data/",
+        "batch_size": 128,
+        "shuffle": true,
+        "validation_split": 0.1,
+        "num_workers": 2
+      }
+    }
+  },
+  "child_hyderparameters": {
+    "child_num_layers": 12,
+    "child_out_filters": 36,
+    "child_grad_bound": 5.0,
+    "child_l2_reg": 0.00025,
+    "child_num_branches": 6,
+    "child_keep_prob": 0.9,
+    "child_lr_max": 0.05,
+    "child_lr_min": 0.0005,
+    "child_lr_T": 10.0
+  },
+  "controller_hyperparameters": {
+    "controller_lstm_size": 64,
+    "controller_lstm_num_layers": 1,
+    "controller_entropy_weight": 0.0001,
+    "controller_train_every": 1,
+    "controller_num_aggregate": 20,
+    "controller_train_steps": 50,
+    "controller_lr": 0.001,
+    "controller_tanh_constant": 1.5,
+    "controller_op_tanh_reduce": 2.5,
+    "controller_skip_target": 0.4,
+    "controller_skip_weight": 0.8,
+    "controller_bl_dec": 0.99
+  }
 }
