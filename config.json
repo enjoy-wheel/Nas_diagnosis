@@ -6,6 +6,7 @@
         "type": "MnistModel",
         "args": {}
     },
+
     "data_loader": {
         "type": "MnistDataLoader",
         "args":{
@@ -16,21 +17,12 @@
             "num_workers": 2
         }
     },
-    "controller_optimizer": {
+    "optimizer": {
         "type": "Adam",
-        "args": {
-            "lr": 3.5e-4,
-            "lr_cosine": false,
-            "lr_max": 0.05,
-            "lr_min": 0.001
-        }
-    },
-    "shared_optimizer": {
-        "type": "SGD",
         "args":{
-            "lr": 20.0,
-            "weight_decay": 0.96,
-            "weight_decay_after": 15.0
+            "lr": 0.001,
+            "weight_decay": 0,
+            "amsgrad": true
         }
     },
     "loss": "nll_loss",
@@ -46,29 +38,13 @@
     },
     "trainer": {
         "epochs": 100,
-
         "save_dir": "saved/",
         "save_period": 1,
         "verbosity": 2,
-        
         "monitor": "min val_loss",
         "early_stop": 10,
-
-        "tensorboard": true
-    },
-    "PTB_regularizations": {
-        "activation_regularization": {
-            "state": false,
-            "amount": 2.0
-        },
-        "temporal_activation_regularization": {
-            "state": false,
-            "amount": 1.0
-        },
-        "norm_stabilizer_regularization": {
-            "state": false,
-            "amount": 1.0,
-            "fixed_point": 5.0
-        }
+        "tensorboard": true,
+        "resume": "",
+        "child_grad_bound": 5.0
     }
 }
