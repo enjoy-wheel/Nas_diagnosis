@@ -7,6 +7,7 @@ import scipy.signal
 import torch
 import visdom
 from munch import Munch
+from pytorch_lightning.utilities import grad_norm
 from tensorboard.program import TensorBoard
 from torch import nn
 
@@ -14,7 +15,8 @@ from torchvision.utils import make_grid
 
 import utils
 from base import BaseTrainer
-from utils import inf_loop, MetricTracker, AverageMeter
+from model.metric import reward
+from utils import inf_loop, MetricTracker
 
 
 class EnasTrainer(BaseTrainer):
@@ -72,7 +74,7 @@ class EnasTrainer(BaseTrainer):
         self.log_step = int(np.sqrt(data_loaders['train'].batch_size))
         # 初始化用于跟踪训练指标的 MetricTracker
         # 包括 'loss' 和所有传入的评估函数，使用 writer 来记录这些指标
-        # *[m.__name__ for m in self.metric_ftns] 生成了一个包含所有评估函数名称的列表，并将其解包为独立的参数传递给 MetricTracker 类
+        # *[m.__name__ for m in self.metric_ftns] 生成了一个包含所有评估函数名称的列表，并将其解包为独立的参数传递给MetricTracker类
         # 目的是方便地将多个评估指标（函数名）作为参数传递
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         # 初始化用于跟踪验证指标的 MetricTracker
@@ -171,6 +173,38 @@ class EnasTrainer(BaseTrainer):
         # 返回验证指标的结果
         return self.valid_metrics.result()
 
+    def _train_controller(self, epoch, baseline=None):
+        print('Epoch ' + str(epoch) + ': Training controller')
+        self.shared_model.eval()
+        self.controller_model.zero_grad()
+        for i in range(self.config.controller.train_steps * self.config.controller.num_aggregate):
+            start = time.time()
+            data, target = next(iter(self.valid_data_loader))
+            data, target = data.to(self.device), target.to(self.device)
+            self.controller_model()
+            sample_arc = self.controller_model.sample_arc
+            with torch.no_grad():
+                output = self.shared_model(data, sample_arc)
+            val_acc = self.metric_ftns['accuaracy'](output, target)
+            reward = self.metric_ftns['reward'](val_acc, self.config.controller.entropy_weight,
+                                                self.controller_model.sample_entropy)
+            if baseline is None:
+                baseline = val_acc
+            else:
+                baseline -= (1 - self.config.controller.bl_dec) * (baseline - reward)
+                baseline = baseline.detach()
+            loss = -self.controller_model.sample_log_prob * (reward - baseline)
+            end = time.time()
+            if (i + 1) % self.config.controller.num_aggregate == 0:
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.controller_model.parameters(),
+                                                           self.config.child.grad_bound)
+                self.controller_optimizer.step()
+                self.controller_model.zero_grad()
+
+            if (i + 1) % (2 * self.config.controller.num_aggregate) == 0:
+                self.logger.info('ctrl_step: %03d loss: %f acc: %f baseline: %f time: %f' % (
+                i + 1, loss.item(), val_acc, baseline, end - start))
+
     def _train_shared_cnn(self, epoch):
         """
         通过从控制器中采样架构来训练共享的 CNN（shared_cnn）。
@@ -186,7 +220,7 @@ class EnasTrainer(BaseTrainer):
         else:
             # 如果提供了固定架构，使用完整的训练集进行训练
             train_loader = self.data_loaders['train']
-
+        self.train_metrics.reset()
         for batch_idx, (data, target) in enumerate(train_loader):  # 遍历训练数据加载器中的批次
             start = time.time()  # 记录当前时间，用于计算每个批次的耗时
             data, target = data.to(self.device), target.to(self.device)  # 将数据移动到 GPU
@@ -205,42 +239,39 @@ class EnasTrainer(BaseTrainer):
                                                        self.config.child_grad_bound)  # 对梯度进行裁剪，防止梯度爆炸
             self.shared_optimizer.step()  # 使用优化器更新 shared_cnn 的参数
 
-        train_acc = torch.mean((torch.max(pred, 1)[1] == labels).type(torch.float))  # 计算训练精度
+            # 更新训练指标，记录损失值
+            self.train_metrics.update('loss', loss.item())
 
-        train_acc_meter.update(train_acc.item())  # 更新训练精度的度量器
-        loss_meter.update(loss.item())  # 更新损失的度量器
+            # 更新训练指标，计算并记录每个指标的值
+            for met in self.metric_ftns:
+                self.train_metrics.update(met.__name__, met(output, target))
 
-        end = time.time()  # 记录当前时间，计算每个批次的耗时
+            end = time.time()  # 记录当前时间，计算每个批次的耗时
 
-        if (i) % args.log_every == 0:
-            learning_rate = shared_cnn_optimizer.param_groups[0]['lr']  # 获取当前的学习率
-            display = 'epoch=' + str(epoch) + \
-                      '\tch_step=' + str(i) + \
-                      '\tloss=%.6f' % (loss_meter.val) + \
-                      '\tlr=%.4f' % (learning_rate) + \
-                      '\t|g|=%.4f' % (grad_norm.item()) + \
-                      '\tacc=%.4f' % (train_acc_meter.val) + \
-                      '\ttime=%.2fit/s' % (1. / (end - start))  # 格式化日志信息
-            print(display)  # 输出日志信息
+            # 定期记录训练日志
+            if batch_idx % self.log_step == 0:
+                self.logger.debug('Train Epoch: {} {} Loss: {:.6f}'.format(
+                    epoch,
+                    self._progress(batch_idx),  # 当前进度
+                    loss.item()  # 当前损失值
+                ))
 
-        # 更新共享 CNN 精度的可视化曲线
+                # 将输入数据保存为图像并写入日志
+                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 
-    vis_win['shared_cnn_acc'] = visdom.line(
-        X=np.array([epoch]),  # 横坐标为当前轮数
-        Y=np.array([train_acc_meter.avg]),  # 纵坐标为平均训练精度
-        win=vis_win['shared_cnn_acc'],  # 指定窗口
-        opts=dict(title='shared_cnn_acc', xlabel='Iteration', ylabel='Accuracy'),  # 图表选项
-        update='append' if epoch > 0 else None)  # 如果不是第一个轮次，则追加数据
+            # 如果到达指定的 epoch 长度，提前退出循环
+            if batch_idx == self.len_epoch:
+                break
+        # 获取本轮次的训练结果日志
+        log = self.train_metrics.result()
 
-    # 更新共享 CNN 损失的可视化曲线
-    vis_win['shared_cnn_loss'] = vis.line(
-        X=np.array([epoch]),  # 横坐标为当前轮数
-        Y=np.array([loss_meter.avg]),  # 纵坐标为平均损失
-        win=vis_win['shared_cnn_loss'],  # 指定窗口
-        opts=dict(title='shared_cnn_loss', xlabel='Iteration', ylabel='Loss'),  # 图表选项
-        update='append' if epoch > 0 else None)  # 如果不是第一个轮次，则追加数据
-
-    controller.train()  # 将控制器设置回训练模式，以便在架构搜索阶段更新其参数
+        if self.do_validation:
+            val_log = self._valid_epoch(epoch)
+            log.update(**{'val_' + k: v for k, v in val_log.items()})
+        if self.shared_lr_scheduler is not None:
+            self.shared_lr_scheduler.step()
+        # 返回本轮次日志
+        return log
 
 
 def _progress(self, batch_idx):

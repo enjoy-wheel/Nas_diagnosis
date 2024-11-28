@@ -105,7 +105,7 @@ class ConfigParser:
 
         # parse custom cli options into dictionary
         # 解析自定义命令行选项，将其转换为字典  
-        modification = {opt.target : getattr(args, _get_opt_name(opt.flags)) for opt in options}
+        modification = {opt.target: getattr(args, _get_opt_name(opt.flags)) for opt in options}
         return cls(config, resume, modification)
 
     # init_obj 让你可以根据配置文件中的信息灵活地初始化模块或类，而无需手动指定每一个类或参数
@@ -172,7 +172,8 @@ class ConfigParser:
         return self.config[name]
 
     def get_logger(self, name, verbosity=2):
-        msg_verbosity = 'verbosity option {} is invalid. Valid options are {}.'.format(verbosity, self.log_levels.keys())
+        msg_verbosity = 'verbosity option {} is invalid. Valid options are {}.'.format(verbosity,
+                                                                                       self.log_levels.keys())
         assert verbosity in self.log_levels, msg_verbosity
         logger = logging.getLogger(name)
         logger.setLevel(self.log_levels[verbosity])
@@ -191,6 +192,7 @@ class ConfigParser:
     def log_dir(self):
         return self._log_dir
 
+
 # helper functions to update config dict with custom cli options
 def _update_config(config, modification):
     """该函数用于根据传入的 modification 字典更新 config（通常是一个嵌套字典，代表整个配置文件）"""
@@ -202,17 +204,20 @@ def _update_config(config, modification):
             _set_by_path(config, k, v)
     return config
 
+
 def _get_opt_name(flags):
     for flg in flags:
         if flg.startswith('--'):
             return flg.replace('--', '')
     return flags[0].replace('--', '')
 
+
 def _set_by_path(tree, keys, value):
     """Set a value in a nested object in tree by sequence of keys.
     在嵌套的字典（tree）中，通过一系列的键（keys）设置一个值"""
     keys = keys.split(';')
     _get_by_path(tree, keys[:-1])[keys[-1]] = value
+
 
 def _get_by_path(tree, keys):
     """Access a nested object in tree by sequence of keys.

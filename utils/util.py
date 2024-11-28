@@ -1,4 +1,5 @@
 import json
+from functools import partial
 
 import torch
 import pandas as pd
@@ -62,6 +63,20 @@ def prepare_device(n_gpu_use):
     device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
     list_ids = list(range(n_gpu_use))
     return device, list_ids
+
+
+def get_metric_func(metric_config, module):
+    metric_name = metric_config['name']
+    try:
+        metric_func = getattr(module, metric_name)
+    except AttributeError:
+        raise ValueError(f"Metric '{metric_name}' is not defined in {module.__name__}")
+
+    params = metric_config.get('params', {})
+    if params:
+        metric_func = partial(metric_func, **params)
+
+    return metric_func
 
 
 class MetricTracker:

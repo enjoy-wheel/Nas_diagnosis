@@ -1,29 +1,26 @@
 import numpy as np
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset, SubsetRandomSampler
 from torch.utils.data.dataloader import default_collate
-from torch.utils.data.sampler import SubsetRandomSampler
 
 
 class BaseDataLoader(DataLoader):
     """
     Base class for all data loaders
     """
-    def __init__(self, dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=default_collate):
+    def __init__(self, dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=default_collate, sampler=None):
         # 将传入的 validation_split 参数（验证集的占比）保存为实例的属性
         self.validation_split = validation_split
-
-        # 将传入的 shuffle 参数（是否打乱数据）保存为实例的属性
         self.shuffle = shuffle
-
-        # 初始化批次索引为0，表示从数据集的开始处开始
         self.batch_idx = 0
-
-        # 获取数据集的样本总数，并将其保存在实例的 n_samples 属性中
         self.n_samples = len(dataset)
 
-        # 调用 _split_sampler 方法，根据验证集占比来划分训练集和验证集，并返回两个采样器
-        # sampler 用于训练集，valid_sampler 用于验证集
-        self.sampler, self.valid_sampler = self._split_sampler(self.validation_split)
+        # 若提供了sampler，则不需要根据validation_split来划分数据集
+        if sampler is None:
+            self.sampler, self.valid_sampler = self._split_sampler(self.validation_split)
+        else:
+            self.sampler = sampler
+            self.valid_sampler = None
+            self.validation_split = 0.0
 
         # 创建一个字典保存初始化所需的参数，稍后会传递给 DataLoader
         self.init_kwargs = {
@@ -85,4 +82,57 @@ class BaseDataLoader(DataLoader):
         if self.valid_sampler is None:
             return None
         else:
-            return DataLoader(sampler=self.valid_sampler, **self.init_kwargs)
+            return BaseDataLoader(
+                dataset=self.init_kwargs['dataset'],
+                batch_size=self.init_kwargs['batch_size'],
+                shuffle=False,
+                validation_split=0.0,
+                num_workers=self.init_kwargs['num_workers'],
+                collate_fn=self.init_kwargs['collate_fn'],
+                sampler=self.valid_sampler
+            )
+
+    def get_subset(self, subset_size, random_subset=True):
+        """
+        Returns a DataLoader for a subset of the dataset.
+
+        Parameters:
+        - subset_size (int): The number of samples in the subset.
+        - random_subset (bool): If True, the subset is randomly sampled.
+                                 If False, the subset consists of the first `subset_size` samples.
+
+        Returns:
+        - DataLoader: A DataLoader instance for the subset.
+        """
+        assert subset_size > 0, "subset_size must be a positive integer."
+        assert subset_size <= self.n_samples, "subset_size cannot exceed the number of samples in the dataset."
+
+        if random_subset:
+            np.random.seed(0)
+            subset_indices = np.random.choice(self.n_samples, subset_size, replace=False)
+            subset_sampler = SubsetRandomSampler(subset_indices)
+
+            return BaseDataLoader(
+                dataset=self.init_kwargs['dataset'],
+                batch_size=self.init_kwargs['batch_size'],
+                shuffle=False,
+                validation_split=0.0,
+                num_workers=self.init_kwargs['num_workers'],
+                collate_fn=self.init_kwargs['collate_fn'],
+                sampler=subset_sampler
+            )
+        else:
+            # 顺序取前 subset_size 个样本
+            subset_indices = np.arange(subset_size)
+            # 同样使用 Subset 来创建一个子集dataset
+            subset_dataset = Subset(self.init_kwargs['dataset'], subset_indices)
+
+            # 此时不需要 sampler，直接传子集dataset即可
+            return BaseDataLoader(
+                dataset=subset_dataset,
+                batch_size=self.init_kwargs['batch_size'],
+                shuffle=False,
+                validation_split=0.0,
+                num_workers=self.init_kwargs['num_workers'],
+                collate_fn=self.init_kwargs['collate_fn']
+            )

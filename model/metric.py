@@ -1,4 +1,5 @@
 import torch
+from parse_config import ConfigParser
 
 
 def accuracy(output, target):
@@ -18,3 +19,10 @@ def top_k_acc(output, target, k=3):
         for i in range(k):
             correct += torch.sum(pred[:, i] == target).item()
     return correct / len(target)
+
+
+def reward(val_acc, entropy_weight, sample_entropy):
+    with torch.no_grad():
+        reward_data = torch.tensor(val_acc)
+        reward_data += entropy_weight * sample_entropy
+    return reward_data

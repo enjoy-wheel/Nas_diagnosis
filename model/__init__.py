@@ -1,3 +1,2 @@
-from model.enas.shared_rnn import RNN
-from model.enas.shared_cnn import CNN
+from model.enas.shared_cnn import SharedCNN
 from model.enas.enas_controller import Controller

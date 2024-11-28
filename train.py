@@ -5,13 +5,11 @@ import numpy as np
 import data_loader.data_loaders as module_data
 import model.loss as module_loss
 import model.metric as module_metric
-import model.model as module_arch
 import model.enas.enas_controller as controller_arch
 import model.enas.shared_cnn as shared_cnn_arch
-import model.enas.shared_rnn as shared_rnn_arch
 from parse_config import ConfigParser
 from trainer import EnasTrainer
-from utils import prepare_device
+from utils import prepare_device,get_metric_func
 
 # fix random seeds for reproducibility
 SEED = 123
@@ -36,8 +34,8 @@ def main(config):
     data_loaders['valid_subset'] = valid_data_loader.get_subset(5000)
     # 根据配置文件中关于模型架构的设置，初始化模型实例
     # build model architecture, then print to console
-    shared_model = config.init_obj('arch', shared_cnn_arch)
-    controller_model = config.init_obj('arch', controller_arch)
+    shared_model = config.init_obj('shared_arch', shared_cnn_arch)
+    controller_model = config.init_obj('controller_arch', controller_arch)
     # 将模型的结构信息记录到日志中，便于查看和验证模型架构
     logger.info(shared_model)
     logger.info(controller_model)
@@ -54,7 +52,9 @@ def main(config):
     # get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
     # config['metrcis']中的设置与model.metric中评估指标获取函数的相对应
-    metrics = [getattr(module_metric, met) for met in config['metrics']]
+    # metrics = [getattr(module_metric, met) for met in config['metrics']]
+    # 动态加载度量函数
+    metrics = [get_metric_func(metric, module_metric) for metric in config['metrics']]
     # 构建优化器和学习率调度器
     # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
     # 过滤出模型中需要更新的参数（requires_grad = True），有些模型参数可能被冻结（如预训练模型的某些层），不需要在训练中更新

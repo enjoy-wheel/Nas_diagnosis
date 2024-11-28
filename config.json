@@ -1,14 +1,23 @@
 {
-    "name": "Mnist_LeNet",
+    "name": "ENAS_Diagnosis",
     "n_gpu": 1,
 
-    "arch": {
-        "type": "MnistModel",
+    "shared_arch": {
+        "type": "SharedCNN",
         "args": {}
     },
 
+    "controller_arch": {
+        "type": "Controller",
+        "args": {
+            "lstm_size": 32,
+            "lstm_num_layers": 2,
+            "num_layers": 12
+        }
+    },
+
     "data_loader": {
-        "type": "MnistDataLoader",
+        "type": "CIFAR10DataLoader",
         "args":{
             "data_dir": "data/",
             "batch_size": 128,
@@ -27,7 +36,21 @@
     },
     "loss": "nll_loss",
     "metrics": [
-        "accuracy", "top_k_acc"
+        {
+            "name": "accuracy"
+        },
+        {
+            "name": "top_k_acc",
+            "params": {
+                "k": 5
+            }
+        },
+        {
+            "name": "reward",
+            "params": {
+                "entropy_weight": 0.0001
+            }
+        }
     ],
     "lr_scheduler": {
         "type": "StepLR",
@@ -45,6 +68,13 @@
         "early_stop": 10,
         "tensorboard": true,
         "resume": "",
-        "child_grad_bound": 5.0
+        "child": {
+            "grad_bound": 5.0
+        },
+        "controller": {
+            "train_steps": 50,
+            "num_aggregate": 20,
+            "bl_dec": 0.99
+        }
     }
 }
