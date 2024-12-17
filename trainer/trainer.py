@@ -273,6 +273,21 @@ class EnasTrainer(BaseTrainer):
         # 返回本轮次日志
         return log
 
+def evaluate_model(self, epoch, n_samples=10):
+    self.shared_model.eval()
+    self.controller_model.eval()
+    print('Here are ' + str(n_samples) + 'architectures:')
+    best_arc, _ = get_best_arc(self.controller_model, self.shared_model, self.data_loaders, n_samples, verbose=True)
+    valid_loader = self.data_loaders['valid_subset']
+    test_loader = self.data_loaders['test_subset']
+    valid_acc = get_eval_accuracy(valid_loader, shared_cnn, best_arc)
+    test_acc = get_eval_accuracy(test_loader, shared_cnn, best_arc)
+    print('Epoch' + str(epoch) + ': Eval')
+    print('valid_accuracy: %.4f' % (valid_acc))
+    print('test_accuracy: %.4f' % (test_acc))
+
+    self.controller_model.train()
+    self.shared_model.trian()
 
 def _progress(self, batch_idx):
     """
